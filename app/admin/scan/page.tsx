@@ -6,6 +6,7 @@ import { checkInByQr } from "@/lib/api";
 
 export default function ScanPage() {
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const processingRef = useRef(false);
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
@@ -30,9 +31,11 @@ export default function ScanPage() {
         { facingMode: "environment" },
         { fps: 10, qrbox: 250 },
         async (decodedText) => {
-          if (processing) return;
+          if (processingRef.current) return;
 
+          processingRef.current = true;
           setProcessing(true);
+
           safeStop(scanner);
 
           try {
@@ -49,6 +52,14 @@ export default function ScanPage() {
             }
           } finally {
             setProcessing(false);
+            processingRef.current = false;
+
+            scanner.start(
+              { facingMode: "environment" },
+              { fps: 10, qrbox: 250 },
+              async () => {},
+              () => {}
+            );
           }
         },
         () => {}
@@ -62,7 +73,7 @@ export default function ScanPage() {
       safeStop(scanner);
       sessionStorage.removeItem("scan-refreshed");
     };
-  }, [processing]);
+  }, []);
 
   return (
     <div className="space-y-6">
