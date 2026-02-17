@@ -97,7 +97,7 @@ export default function ScanPage() {
       await safeStop();
       
       if (!isValidParticipantQR(decodedText)) {
-        alert(`❌ QR Code Tidak Valid\n\nQR Code yang dipindai bukan QR peserta.\n\nFormat yang benar: QR-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx\n\nIsi QR: ${decodedText.substring(0, 50)}${decodedText.length > 50 ? '...' : ''}`);
+        alert(`❌ QR Code Tidak Valid\nIsi QR: ${decodedText.substring(0, 50)}${decodedText.length > 50 ? '...' : ''}`);
         
         setProcessing(false);
         processingRef.current = false;
@@ -111,22 +111,26 @@ export default function ScanPage() {
       alert(`✅ Check-in Berhasil\n\nNama: ${result.name}\nQR Code: ${decodedText}`);
       
     } catch (err: any) {
-      console.error("Check-in error:", err);
+      console.log("Full error object:", err);
       
       let errorTitle = "⚠️ Error";
       let errorMessage = "Terjadi kesalahan";
       
+      // Handle error dari API
       if (err.response) {
+        // Axios error format
         const status = err.response.status;
         const data = err.response.data;
         
+        console.log("Error response:", { status, data });
+        
         if (status === 400) {
-          if (data === "Peserta sudah check-in") {
+          if (data === "Peserta sudah check-in" || data?.message === "Peserta sudah check-in") {
             errorTitle = "⚠️ Sudah Check-in";
             errorMessage = "Peserta dengan QR ini sudah melakukan check-in sebelumnya.";
           } else {
-            errorTitle = "❌ Request Invalid";
-            errorMessage = data || "Data yang dikirim tidak valid.";
+            errorTitle = "❌ Gagal Check-in";
+            errorMessage = typeof data === 'string' ? data : JSON.stringify(data);
           }
         } else if (status === 404) {
           errorTitle = "❌ QR Tidak Ditemukan";
@@ -135,7 +139,12 @@ export default function ScanPage() {
           errorTitle = "❌ Server Error";
           errorMessage = "Terjadi kesalahan pada server. Silakan coba lagi nanti.";
         }
+      } else if (err.request) {
+        // Request dibuat tapi tidak ada response
+        errorTitle = "❌ Koneksi Error";
+        errorMessage = "Tidak ada response dari server. Periksa koneksi internet Anda.";
       } else if (err.message) {
+        // Error lainnya
         if (err.message.includes("Network Error") || err.message.includes("CORS")) {
           errorTitle = "❌ Koneksi Error";
           errorMessage = "Gagal terhubung ke server. Periksa koneksi internet Anda.";
@@ -158,14 +167,11 @@ export default function ScanPage() {
   };
 
   const handleScanError = (error: any) => {
-    // Abaikan error parsing QR code karena ini normal ketika tidak ada QR
     if (error?.includes?.("No MultiFormat Readers were able to detect the code")) {
-      // Reset error count jika ini error normal
       errorCountRef.current = 0;
       return;
     }
 
-    // Untuk error lainnya, batasi lognya
     if (errorCountRef.current < 3) {
       console.warn("Scan error:", error);
       errorCountRef.current++;
