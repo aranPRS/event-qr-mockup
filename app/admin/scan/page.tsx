@@ -11,6 +11,7 @@ export default function ScanPage() {
   const [error, setError] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const isStoppingRef = useRef(false);
+  const errorCountRef = useRef(0);
 
   const isValidParticipantQR = (text: string): boolean => {
     if (text.startsWith('http://') || text.startsWith('https://')) {
@@ -156,6 +157,21 @@ export default function ScanPage() {
     }
   };
 
+  const handleScanError = (error: any) => {
+    // Abaikan error parsing QR code karena ini normal ketika tidak ada QR
+    if (error?.includes?.("No MultiFormat Readers were able to detect the code")) {
+      // Reset error count jika ini error normal
+      errorCountRef.current = 0;
+      return;
+    }
+
+    // Untuk error lainnya, batasi lognya
+    if (errorCountRef.current < 3) {
+      console.warn("Scan error:", error);
+      errorCountRef.current++;
+    }
+  };
+
   const restartScanner = async () => {
     if (!scannerRef.current || isStoppingRef.current) return;
 
@@ -174,13 +190,6 @@ export default function ScanPage() {
       console.error("Failed to restart scanner:", err);
       setError("Gagal memulai ulang kamera. Refresh halaman.");
     }
-  };
-
-  const handleScanError = (error: any) => {
-    if (error?.message?.includes("NotFound")) {
-      return;
-    }
-    console.warn("Scan error:", error);
   };
 
   const safeStop = async () => {
