@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
-import { checkInByQr } from "@/lib/api";
 
 export default function ScanPage() {
   const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -11,7 +10,6 @@ export default function ScanPage() {
   const [error, setError] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const isStoppingRef = useRef(false);
-  const errorCountRef = useRef(0);
 
   const isValidParticipantQR = (text: string): boolean => {
     if (text.startsWith('http://') || text.startsWith('https://')) {
@@ -19,12 +17,7 @@ export default function ScanPage() {
     }
 
     const qrFormat = /^QR-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    
-    if (!qrFormat.test(text)) {
-      return false;
-    }
-
-    return true;
+    return qrFormat.test(text);
   };
 
   useEffect(() => {
@@ -64,7 +57,7 @@ export default function ScanPage() {
             aspectRatio: 1.0
           },
           handleScanSuccess,
-          handleScanError
+          () => {} // Ignore scan error
         );
 
         if (mounted) {
@@ -72,9 +65,9 @@ export default function ScanPage() {
           setError(null);
         }
       } catch (err) {
-        console.error("Camera initialization error:", err);
+        console.error("Camera error:", err);
         if (mounted) {
-          setError("Gagal mengakses kamera. Pastikan izin kamera diberikan.");
+          setError("Gagal mengakses kamera");
         }
       }
     };
@@ -97,44 +90,39 @@ export default function ScanPage() {
       await safeStop();
       
       if (!isValidParticipantQR(decodedText)) {
-        alert(`❌ QR Code Tidak Valid\n\nQR Code yang dipindai bukan QR peserta.\n\nFormat yang benar: QR-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx\n\nIsi QR: ${decodedText.substring(0, 50)}${decodedText.length > 50 ? '...' : ''}`);
-        
-        setProcessing(false);
-        processingRef.current = false;
-        
+        alert("❌ QR Code tidak valid");
         setTimeout(() => restartScanner(), 1500);
         return;
       }
 
-      try {
-        const result = await checkInByQr(decodedText);
-        alert(`✅ Check-in Berhasil\n\nNama: ${result.name}`);
-      } catch (err: any) {
-        // Cek response 400 dengan body "Peserta sudah check-in"
-        if (err.response?.status === 400 && err.response?.data === "Peserta sudah check-in") {
-          alert(`⚠️ Sudah Check-in\n\nPeserta dengan QR ini sudah melakukan check-in sebelumnya.`);
-        } else {
-          // Error lainnya
-          alert(`❌ Error\n\nTerjadi kesalahan: ${err.message || 'Unknown error'}`);
-        }
+      // Pake fetch langsung
+      const response = await fetch('https://event.taufiqthareq.my.id/api/checkin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ qrCode: decodedText })
+      });
+
+      const data = await response.text();
+
+      if (response.ok) {
+        // Success 200
+        alert(`✅ Check-in Berhasil`);
+      } else if (response.status === 400 && data === "Peserta sudah check-in") {
+        // Sudah check-in
+        alert(`⚠️ Peserta sudah check-in`);
+      } else {
+        // Error lain
+        alert(`❌ Gagal: ${data}`);
       }
       
+    } catch (err: any) {
+      alert(`❌ Error: ${err.message}`);
     } finally {
       setProcessing(false);
       processingRef.current = false;
       setTimeout(() => restartScanner(), 1500);
-    }
-  };
-
-  const handleScanError = (error: any) => {
-    if (error?.includes?.("No MultiFormat Readers were able to detect the code")) {
-      errorCountRef.current = 0;
-      return;
-    }
-
-    if (errorCountRef.current < 3) {
-      console.warn("Scan error:", error);
-      errorCountRef.current++;
     }
   };
 
@@ -150,11 +138,11 @@ export default function ScanPage() {
           aspectRatio: 1.0
         },
         handleScanSuccess,
-        handleScanError
+        () => {}
       );
     } catch (err) {
       console.error("Failed to restart scanner:", err);
-      setError("Gagal memulai ulang kamera. Refresh halaman.");
+      setError("Gagal memulai ulang kamera");
     }
   };
 
@@ -165,17 +153,10 @@ export default function ScanPage() {
     
     try {
       const scanner = scannerRef.current;
-      
-      try {
-        await scanner.stop();
-      } catch (stopErr) {}
-
-      try {
-        await scanner.clear();
-      } catch (clearErr) {}
-      
+      try { await scanner.stop(); } catch {}
+      try { await scanner.clear(); } catch {}
     } catch (err) {
-      console.warn("Stop scanner error:", err);
+      console.warn("Stop error:", err);
     } finally {
       isStoppingRef.current = false;
     }
@@ -186,8 +167,8 @@ export default function ScanPage() {
   };
 
   const handleManualInput = () => {
-    const qrCode = prompt("Masukkan QR Code peserta (contoh: QR-16083ab5-f4ef-4b76-ad81-d0b251214f71):");
-    if (qrCode && qrCode.trim()) {
+    const qrCode = prompt("Masukkan QR Code:");
+    if (qrCode?.trim()) {
       handleScanSuccess(qrCode.trim());
     }
   };
@@ -195,10 +176,10 @@ export default function ScanPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Scan QR Code Peserta</h1>
+        <h1 className="text-2xl font-bold">Scan QR Code</h1>
         <button
           onClick={handleManualInput}
-          className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+          className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg"
         >
           Input Manual
         </button>
@@ -209,20 +190,15 @@ export default function ScanPage() {
           <p className="text-red-600 mb-2">{error}</p>
           <button
             onClick={handleRefresh}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            className="px-4 py-2 bg-red-600 text-white rounded-lg"
           >
-            Refresh Halaman
+            Refresh
           </button>
         </div>
       ) : (
-        <div className="space-y-2">
-          <p className="text-gray-500">
-            Arahkan kamera ke QR code peserta untuk melakukan check-in
-          </p>
-          <p className="text-xs text-gray-400">
-            Format QR: QR-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-          </p>
-        </div>
+        <p className="text-gray-500">
+          Arahkan kamera ke QR code peserta
+        </p>
       )}
 
       <div className="bg-white rounded-lg p-4 shadow">
@@ -234,18 +210,10 @@ export default function ScanPage() {
       </div>
 
       {processing && (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50">
-          <div className="bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2">
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            <span>Memproses QR Code...</span>
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2">
+          <div className="bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg">
+            Memproses...
           </div>
-        </div>
-      )}
-
-      {!isInitialized && !error && (
-        <div className="text-center py-4">
-          <div className="inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          <p className="mt-2 text-gray-500">Memulai kamera...</p>
         </div>
       )}
     </div>
