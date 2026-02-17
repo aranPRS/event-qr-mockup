@@ -97,7 +97,7 @@ export default function ScanPage() {
       await safeStop();
       
       if (!isValidParticipantQR(decodedText)) {
-        alert(`❌ QR Code Tidak Valid\nIsi QR: ${decodedText.substring(0, 50)}${decodedText.length > 50 ? '...' : ''}`);
+        alert(`❌ QR Code Tidak Valid\n\nQR Code yang dipindai bukan QR peserta.\n\nFormat yang benar: QR-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx\n\nIsi QR: ${decodedText.substring(0, 50)}${decodedText.length > 50 ? '...' : ''}`);
         
         setProcessing(false);
         processingRef.current = false;
@@ -106,62 +106,58 @@ export default function ScanPage() {
         return;
       }
 
-      const result = await checkInByQr(decodedText);
-      
-      alert(`✅ Check-in Berhasil\n\nNama: ${result.name}\nQR Code: ${decodedText}`);
-      
-    } catch (err: any) {
-      console.log("Full error object:", err);
-      
-      let errorTitle = "⚠️ Error";
-      let errorMessage = "Terjadi kesalahan";
-      
-      // Handle error dari API
-      if (err.response) {
-        // Axios error format
-        const status = err.response.status;
-        const data = err.response.data;
+      try {
+        const result = await checkInByQr(decodedText);
         
-        console.log("Error response:", { status, data });
+        // Success case
+        alert(`✅ Check-in Berhasil\n\nNama: ${result.name}\nQR Code: ${decodedText}`);
         
-        if (status === 400) {
+      } catch (err: any) {
+        // Handle 400 as normal response, not error
+        if (err.response?.status === 400) {
+          const data = err.response.data;
+          
           if (data === "Peserta sudah check-in" || data?.message === "Peserta sudah check-in") {
-            errorTitle = "⚠️ Sudah Check-in";
-            errorMessage = "Peserta dengan QR ini sudah melakukan check-in sebelumnya.";
+            alert(`⚠️ Sudah Check-in\n\nPeserta dengan QR ini sudah melakukan check-in sebelumnya.\n\nQR Code: ${decodedText}`);
           } else {
-            errorTitle = "❌ Gagal Check-in";
-            errorMessage = typeof data === 'string' ? data : JSON.stringify(data);
+            alert(`❌ Gagal Check-in\n\n${typeof data === 'string' ? data : 'Terjadi kesalahan'}`);
           }
-        } else if (status === 404) {
-          errorTitle = "❌ QR Tidak Ditemukan";
-          errorMessage = "QR Code ini tidak terdaftar dalam sistem.";
-        } else if (status === 500) {
-          errorTitle = "❌ Server Error";
-          errorMessage = "Terjadi kesalahan pada server. Silakan coba lagi nanti.";
-        }
-      } else if (err.request) {
-        // Request dibuat tapi tidak ada response
-        errorTitle = "❌ Koneksi Error";
-        errorMessage = "Tidak ada response dari server. Periksa koneksi internet Anda.";
-      } else if (err.message) {
-        // Error lainnya
-        if (err.message.includes("Network Error") || err.message.includes("CORS")) {
-          errorTitle = "❌ Koneksi Error";
-          errorMessage = "Gagal terhubung ke server. Periksa koneksi internet Anda.";
-        } else if (err.message.includes("NOT_FOUND")) {
-          errorTitle = "❌ QR Tidak Ditemukan";
-          errorMessage = "QR Code ini tidak terdaftar dalam sistem.";
         } else {
-          errorMessage = err.message;
+          // Real errors (network, server error, etc)
+          console.error("Check-in error:", err);
+          
+          let errorTitle = "❌ Error";
+          let errorMessage = "Terjadi kesalahan";
+          
+          if (err.response) {
+            const status = err.response.status;
+            
+            if (status === 404) {
+              errorTitle = "❌ QR Tidak Ditemukan";
+              errorMessage = "QR Code ini tidak terdaftar dalam sistem.";
+            } else if (status === 500) {
+              errorTitle = "❌ Server Error";
+              errorMessage = "Terjadi kesalahan pada server. Silakan coba lagi nanti.";
+            }
+          } else if (err.request) {
+            errorTitle = "❌ Koneksi Error";
+            errorMessage = "Tidak ada response dari server. Periksa koneksi internet Anda.";
+          } else if (err.message) {
+            if (err.message.includes("Network Error") || err.message.includes("CORS")) {
+              errorTitle = "❌ Koneksi Error";
+              errorMessage = "Gagal terhubung ke server. Periksa koneksi internet Anda.";
+            } else {
+              errorMessage = err.message;
+            }
+          }
+          
+          alert(`${errorTitle}\n\n${errorMessage}`);
         }
       }
-      
-      alert(`${errorTitle}\n\n${errorMessage}`);
       
     } finally {
       setProcessing(false);
       processingRef.current = false;
-
       setTimeout(() => restartScanner(), 1500);
     }
   };
