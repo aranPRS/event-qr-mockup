@@ -108,50 +108,14 @@ export default function ScanPage() {
 
       try {
         const result = await checkInByQr(decodedText);
-        
-        // Success case
-        alert(`✅ Check-in Berhasil\n\nNama: ${result.name}\nQR Code: ${decodedText}`);
-        
+        alert(`✅ Check-in Berhasil\n\nNama: ${result.name}`);
       } catch (err: any) {
-        // Handle 400 as normal response, not error
-        if (err.response?.status === 400) {
-          const data = err.response.data;
-          
-          if (data === "Peserta sudah check-in" || data?.message === "Peserta sudah check-in") {
-            alert(`⚠️ Sudah Check-in\n\nPeserta dengan QR ini sudah melakukan check-in sebelumnya.\n\nQR Code: ${decodedText}`);
-          } else {
-            alert(`❌ Gagal Check-in\n\n${typeof data === 'string' ? data : 'Terjadi kesalahan'}`);
-          }
+        // Cek response 400 dengan body "Peserta sudah check-in"
+        if (err.response?.status === 400 && err.response?.data === "Peserta sudah check-in") {
+          alert(`⚠️ Sudah Check-in\n\nPeserta dengan QR ini sudah melakukan check-in sebelumnya.`);
         } else {
-          // Real errors (network, server error, etc)
-          console.error("Check-in error:", err);
-          
-          let errorTitle = "❌ Error";
-          let errorMessage = "Terjadi kesalahan";
-          
-          if (err.response) {
-            const status = err.response.status;
-            
-            if (status === 404) {
-              errorTitle = "❌ QR Tidak Ditemukan";
-              errorMessage = "QR Code ini tidak terdaftar dalam sistem.";
-            } else if (status === 500) {
-              errorTitle = "❌ Server Error";
-              errorMessage = "Terjadi kesalahan pada server. Silakan coba lagi nanti.";
-            }
-          } else if (err.request) {
-            errorTitle = "❌ Koneksi Error";
-            errorMessage = "Tidak ada response dari server. Periksa koneksi internet Anda.";
-          } else if (err.message) {
-            if (err.message.includes("Network Error") || err.message.includes("CORS")) {
-              errorTitle = "❌ Koneksi Error";
-              errorMessage = "Gagal terhubung ke server. Periksa koneksi internet Anda.";
-            } else {
-              errorMessage = err.message;
-            }
-          }
-          
-          alert(`${errorTitle}\n\n${errorMessage}`);
+          // Error lainnya
+          alert(`❌ Error\n\nTerjadi kesalahan: ${err.message || 'Unknown error'}`);
         }
       }
       
