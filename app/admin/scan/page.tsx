@@ -278,7 +278,7 @@ export default function ScanPage() {
 
                   <div className="flex justify-center mb-4">
                     <img
-                      src="/resource/profile.jpeg"
+                      src="/profile.jpeg"
                       alt="Profile"
                       className="w-24 h-24 rounded-full object-cover border"
                       onError={(e) => {
