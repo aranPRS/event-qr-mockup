@@ -237,22 +237,23 @@ export default function AddParticipantPage() {
                   </div>
 
                   {/* Role Field */}
-                  <div className="space-y-2">
-                    <label htmlFor="role" className="block text-sm font-medium">
-                      Peran
-                    </label>
-                    <select
-                      id="role"
-                      value={role}
-                      onChange={(e) => setRole(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-md"
-                      disabled={loading || success}
-                    >
-                      <option value="participant">Peserta</option>
-                      <option value="speaker">Pembicara</option>
-                      <option value="organizer">Penyelenggara</option>
-                    </select>
-                  </div>
+                 <div className="space-y-2">
+                      <label htmlFor="role" className="block text-sm font-medium">
+                        Jabatan
+                        <span className="text-gray-400 text-xs ml-2">(Opsional)</span>
+                      </label>
+                      <Input
+                        id="role"
+                        type="text"
+                        placeholder="Masukkan Jabatan (contoh: Manager, HRD, Staff, dll)"
+                        value={role}
+                        onChange={(e) => setRole(e.target.value)}
+                        disabled={loading || success}
+                      />
+                      <p className="text-xs text-gray-500">
+                        Isi dengan jabatan peserta (bebas)
+                      </p>
+                </div>
 
                   {/* Photo Field */}
                   <div className="space-y-2">
