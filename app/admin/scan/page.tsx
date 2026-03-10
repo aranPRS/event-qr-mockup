@@ -266,7 +266,7 @@ export default function ScanPage() {
                       : "✅ Check-in Berhasil"}
                   </h2>
 
-                  {modalData.photoUrl && (
+                  {/* {modalData.photoUrl && (
                     <div className="flex justify-center mb-4">
                       <img
                         src={modalData.photoUrl}
@@ -274,7 +274,18 @@ export default function ScanPage() {
                         className="w-24 h-24 rounded-full object-cover border"
                       />
                     </div>
-                  )}
+                  )} */}
+
+                  <div className="flex justify-center mb-4">
+                    <img
+                      src="/resource/profile.jpeg"
+                      alt="Profile"
+                      className="w-24 h-24 rounded-full object-cover border"
+                      onError={(e) => {
+                        e.currentTarget.src = "https://via.placeholder.com/96?text=User";
+                      }}
+                    />
+                  </div>
 
                   <div className="space-y-1">
                     <p className="text-lg font-semibold">{modalData.name}</p>
