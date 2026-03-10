@@ -245,7 +245,7 @@ export default function ScanPage() {
             <div className="space-y-1">
               <p className="text-lg font-semibold">{modalData.name}</p>
               <p className="text-gray-500">{modalData.role}</p>
-              <p className="text-gray-500">{modalData.phoneNumber}</p>
+              {/* <p className="text-gray-500">{modalData.phoneNumber}</p> */}
             </div>
 
             <p className="text-xs text-gray-400 mt-3">
