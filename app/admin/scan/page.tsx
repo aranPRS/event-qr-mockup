@@ -99,7 +99,7 @@ export default function ScanPage() {
       }
 
       const response = await fetch(
-        "https://event.taufiqthareq.my.id/api/checkin",
+        "https://event.taufiqthareq.my.id/api/checkin/checkin",
         {
           method: "POST",
           headers: {
