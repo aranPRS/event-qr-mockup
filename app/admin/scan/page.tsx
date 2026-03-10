@@ -14,6 +14,7 @@ export default function ScanPage() {
 
   const [modalData, setModalData] = useState<any>(null);
   const [showModal, setShowModal] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
 
   const isValidParticipantQR = (text: string): boolean => {
     if (text.startsWith("http://") || text.startsWith("https://")) {
@@ -93,9 +94,10 @@ export default function ScanPage() {
       await safeStop();
 
       if (!isValidParticipantQR(decodedText)) {
-        alert("❌ QR Code tidak valid");
-        setTimeout(() => restartScanner(), 1500);
-        return;
+        // Tampilkan error di modal
+        setModalError("❌ QR Code tidak valid");
+        setShowModal(true);
+        return; // Jangan lanjut ke fetch
       }
 
       const response = await fetch(
@@ -111,18 +113,23 @@ export default function ScanPage() {
 
       if (!response.ok) {
         const text = await response.text();
-        alert(`❌ ${text}`);
+        // Tampilkan error di modal
+        setModalError(`❌ ${text}`);
+        setShowModal(true);
       } else {
         const data = await response.json();
-
         setModalData(data);
+        setModalError(null);
         setShowModal(true);
       }
     } catch (err: any) {
-      alert(`❌ Error: ${err.message}`);
+      // Tampilkan error di modal
+      setModalError(`❌ Error: ${err.message}`);
+      setShowModal(true);
     } finally {
       setProcessing(false);
       processingRef.current = false;
+      // JANGAN panggil restartScanner di sini
     }
   };
 
@@ -130,6 +137,9 @@ export default function ScanPage() {
     if (!scannerRef.current || isStoppingRef.current) return;
 
     try {
+      // Reset error state
+      setError(null);
+      
       await scannerRef.current.start(
         { facingMode: "environment" },
         {
@@ -140,6 +150,7 @@ export default function ScanPage() {
         handleScanSuccess,
         () => {}
       );
+      console.log("Scanner restarted successfully");
     } catch (err) {
       console.error("Failed to restart scanner:", err);
       setError("Gagal memulai ulang kamera");
@@ -167,7 +178,12 @@ export default function ScanPage() {
   const closeModal = () => {
     setShowModal(false);
     setModalData(null);
-    setTimeout(() => restartScanner(), 500);
+    setModalError(null);
+    
+    // Restart scanner setelah modal ditutup
+    setTimeout(() => {
+      restartScanner();
+    }, 500);
   };
 
   const handleRefresh = () => {
@@ -223,41 +239,61 @@ export default function ScanPage() {
         </div>
       )}
 
-      {/* MODAL CHECKIN */}
-      {showModal && modalData && (
+      {/* MODAL CHECKIN / ERROR */}
+      {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl text-center">
-            <h2 className="text-xl font-bold mb-4">
-              {modalData.alreadyCheckedIn
-                ? "⚠️ Peserta Sudah Check-in"
-                : "✅ Check-in Berhasil"}
-            </h2>
+            {/* Tampilkan error jika ada */}
+            {modalError ? (
+              <>
+                <h2 className="text-xl font-bold mb-4 text-red-600">
+                  {modalError}
+                </h2>
+                <button
+                  onClick={closeModal}
+                  className="mt-5 w-full bg-blue-600 text-white py-2 rounded-lg"
+                >
+                  Tutup
+                </button>
+              </>
+            ) : (
+              /* Tampilkan data jika sukses */
+              modalData && (
+                <>
+                  <h2 className="text-xl font-bold mb-4">
+                    {modalData.alreadyCheckedIn
+                      ? "⚠️ Peserta Sudah Check-in"
+                      : "✅ Check-in Berhasil"}
+                  </h2>
 
-            {modalData.photoUrl && (
-              <div className="flex justify-center mb-4">
-                <img
-                  src={modalData.photoUrl}
-                  className="w-24 h-24 rounded-full object-cover border"
-                />
-              </div>
+                  {modalData.photoUrl && (
+                    <div className="flex justify-center mb-4">
+                      <img
+                        src={modalData.photoUrl}
+                        alt={modalData.name}
+                        className="w-24 h-24 rounded-full object-cover border"
+                      />
+                    </div>
+                  )}
+
+                  <div className="space-y-1">
+                    <p className="text-lg font-semibold">{modalData.name}</p>
+                    <p className="text-gray-500">{modalData.role}</p>
+                  </div>
+
+                  <p className="text-xs text-gray-400 mt-3">
+                    {new Date(modalData.checkedInAt).toLocaleString()}
+                  </p>
+
+                  <button
+                    onClick={closeModal}
+                    className="mt-5 w-full bg-blue-600 text-white py-2 rounded-lg"
+                  >
+                    Tutup
+                  </button>
+                </>
+              )
             )}
-
-            <div className="space-y-1">
-              <p className="text-lg font-semibold">{modalData.name}</p>
-              <p className="text-gray-500">{modalData.role}</p>
-              {/* <p className="text-gray-500">{modalData.phoneNumber}</p> */}
-            </div>
-
-            <p className="text-xs text-gray-400 mt-3">
-              {new Date(modalData.checkedInAt).toLocaleString()}
-            </p>
-
-            <button
-              onClick={closeModal}
-              className="mt-5 w-full bg-blue-600 text-white py-2 rounded-lg"
-            >
-              Tutup
-            </button>
           </div>
         </div>
       )}
