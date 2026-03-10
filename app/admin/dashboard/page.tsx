@@ -76,11 +76,11 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="h-full overflow-y-auto"> {/* HAPUS: min-h-screen, h-screen, overflow-hidden */}
-      <div className="max-w-7xl mx-auto h-full"> {/* HAPUS: bg-gray-50 dan padding */}
+    <div className="h-full overflow-y-auto"> 
+      <div className="max-w-7xl mx-auto h-full"> 
         <div className="h-full flex flex-col">
           {/* Header */}
-          <div className="space-y-2 pt-4 px-4 md:pt-6 md:px-6 lg:pt-8 lg:px-8"> {/* TAMBAH padding di sini */}
+          <div className="space-y-2 pt-4 px-4 md:pt-6 md:px-6 lg:pt-8 lg:px-8"> 
             <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight">
               Dashboard
             </h1>

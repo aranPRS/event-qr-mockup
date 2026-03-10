@@ -6,17 +6,22 @@ import { Html5Qrcode } from "html5-qrcode";
 export default function ScanPage() {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const processingRef = useRef(false);
+  const isStoppingRef = useRef(false);
+
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
-  const isStoppingRef = useRef(false);
+
+  const [modalData, setModalData] = useState<any>(null);
+  const [showModal, setShowModal] = useState(false);
 
   const isValidParticipantQR = (text: string): boolean => {
-    if (text.startsWith('http://') || text.startsWith('https://')) {
+    if (text.startsWith("http://") || text.startsWith("https://")) {
       return false;
     }
 
-    const qrFormat = /^QR-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const qrFormat =
+      /^QR-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     return qrFormat.test(text);
   };
 
@@ -33,14 +38,12 @@ export default function ScanPage() {
     const initializeScanner = async () => {
       try {
         const container = document.getElementById(readerId);
-        if (container) {
-          container.innerHTML = "";
-        }
+        if (container) container.innerHTML = "";
 
         const scanner = new Html5Qrcode(readerId);
-        
+
         if (!mounted) return;
-        
+
         scannerRef.current = scanner;
 
         const devices = await Html5Qrcode.getCameras();
@@ -51,13 +54,13 @@ export default function ScanPage() {
 
         await scanner.start(
           { facingMode: "environment" },
-          { 
-            fps: 10, 
+          {
+            fps: 10,
             qrbox: { width: 250, height: 250 },
-            aspectRatio: 1.0
+            aspectRatio: 1.0,
           },
           handleScanSuccess,
-          () => {} // Ignore scan error
+          () => {}
         );
 
         if (mounted) {
@@ -88,41 +91,38 @@ export default function ScanPage() {
 
     try {
       await safeStop();
-      
+
       if (!isValidParticipantQR(decodedText)) {
         alert("❌ QR Code tidak valid");
         setTimeout(() => restartScanner(), 1500);
         return;
       }
 
-      // Pake fetch langsung
-      const response = await fetch('https://event.taufiqthareq.my.id/api/checkin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ qrCode: decodedText })
-      });
+      const response = await fetch(
+        "https://event.taufiqthareq.my.id/api/checkin",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ qrCode: decodedText }),
+        }
+      );
 
-      const data = await response.text();
-
-      if (response.ok) {
-        // Success 200
-        alert(`✅ Check-in Berhasil`);
-      } else if (response.status === 400 && data === "Peserta sudah check-in") {
-        // Sudah check-in
-        alert(`⚠️ Peserta sudah check-in`);
+      if (!response.ok) {
+        const text = await response.text();
+        alert(`❌ ${text}`);
       } else {
-        // Error lain
-        alert(`❌ Gagal: ${data}`);
+        const data = await response.json();
+
+        setModalData(data);
+        setShowModal(true);
       }
-      
     } catch (err: any) {
       alert(`❌ Error: ${err.message}`);
     } finally {
       setProcessing(false);
       processingRef.current = false;
-      setTimeout(() => restartScanner(), 1500);
     }
   };
 
@@ -132,10 +132,10 @@ export default function ScanPage() {
     try {
       await scannerRef.current.start(
         { facingMode: "environment" },
-        { 
-          fps: 10, 
+        {
+          fps: 10,
           qrbox: { width: 250, height: 250 },
-          aspectRatio: 1.0
+          aspectRatio: 1.0,
         },
         handleScanSuccess,
         () => {}
@@ -148,18 +148,26 @@ export default function ScanPage() {
 
   const safeStop = async () => {
     if (!scannerRef.current) return;
-    
+
     isStoppingRef.current = true;
-    
+
     try {
       const scanner = scannerRef.current;
-      try { await scanner.stop(); } catch {}
-      try { await scanner.clear(); } catch {}
-    } catch (err) {
-      console.warn("Stop error:", err);
+      try {
+        await scanner.stop();
+      } catch {}
+      try {
+        await scanner.clear();
+      } catch {}
     } finally {
       isStoppingRef.current = false;
     }
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setModalData(null);
+    setTimeout(() => restartScanner(), 500);
   };
 
   const handleRefresh = () => {
@@ -184,7 +192,7 @@ export default function ScanPage() {
           Input Manual
         </button>
       </div>
-      
+
       {error ? (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <p className="text-red-600 mb-2">{error}</p>
@@ -196,16 +204,14 @@ export default function ScanPage() {
           </button>
         </div>
       ) : (
-        <p className="text-gray-500">
-          Arahkan kamera ke QR code peserta
-        </p>
+        <p className="text-gray-500">Arahkan kamera ke QR code peserta</p>
       )}
 
       <div className="bg-white rounded-lg p-4 shadow">
-        <div 
-          id="qr-reader" 
+        <div
+          id="qr-reader"
           className="w-full max-w-sm mx-auto overflow-hidden"
-          style={{ minHeight: '300px' }}
+          style={{ minHeight: "300px" }}
         />
       </div>
 
@@ -213,6 +219,45 @@ export default function ScanPage() {
         <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2">
           <div className="bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg">
             Memproses...
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CHECKIN */}
+      {showModal && modalData && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl text-center">
+            <h2 className="text-xl font-bold mb-4">
+              {modalData.alreadyCheckedIn
+                ? "⚠️ Peserta Sudah Check-in"
+                : "✅ Check-in Berhasil"}
+            </h2>
+
+            {modalData.photoUrl && (
+              <div className="flex justify-center mb-4">
+                <img
+                  src={modalData.photoUrl}
+                  className="w-24 h-24 rounded-full object-cover border"
+                />
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <p className="text-lg font-semibold">{modalData.name}</p>
+              <p className="text-gray-500">{modalData.role}</p>
+              <p className="text-gray-500">{modalData.phoneNumber}</p>
+            </div>
+
+            <p className="text-xs text-gray-400 mt-3">
+              {new Date(modalData.checkedInAt).toLocaleString()}
+            </p>
+
+            <button
+              onClick={closeModal}
+              className="mt-5 w-full bg-blue-600 text-white py-2 rounded-lg"
+            >
+              Tutup
+            </button>
           </div>
         </div>
       )}
