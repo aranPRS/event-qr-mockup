@@ -14,22 +14,40 @@ import {
   CheckCircle,
   Loader2,
   Mail,
-  User
+  User,
+  Phone
 } from "lucide-react";
 
 export default function AddParticipantPage() {
   const router = useRouter();
 
   const [name, setName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
+  const [role, setRole] = useState("participant"); // Default role
+  const [photo, setPhoto] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
   // Fungsi validasi email sederhana
   const isValidEmail = (email: string) => {
+    if (!email) return true; // Email opsional
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
+  };
+
+  // Fungsi validasi nomor telepon
+  const isValidPhoneNumber = (phone: string) => {
+    // Minimal 10 digit, maksimal 15 digit, hanya angka, boleh mulai dengan +
+    const phoneRegex = /^\+?[0-9]{10,15}$/;
+    return phoneRegex.test(phone.replace(/\s/g, ''));
+  };
+
+  // Format nomor telepon
+  const formatPhoneNumber = (value: string) => {
+    // Hanya simpan angka dan tanda +
+    return value.replace(/[^\d+]/g, '');
   };
 
   async function handleSubmit(e: React.FormEvent) {
@@ -41,12 +59,17 @@ export default function AddParticipantPage() {
       return;
     }
 
-    if (!email.trim()) {
-      setError("Email wajib diisi");
+    if (!phoneNumber.trim()) {
+      setError("Nomor telepon wajib diisi");
       return;
     }
 
-    if (!isValidEmail(email)) {
+    if (!isValidPhoneNumber(phoneNumber)) {
+      setError("Format nomor telepon tidak valid (minimal 10 digit, maksimal 15 digit)");
+      return;
+    }
+
+    if (email && !isValidEmail(email)) {
       setError("Format email tidak valid");
       return;
     }
@@ -55,7 +78,17 @@ export default function AddParticipantPage() {
     setError("");
 
     try {
-      await addParticipant(name, email);
+      // Bersihkan nomor telepon dari spasi
+      const cleanPhoneNumber = phoneNumber.replace(/\s/g, '');
+      
+      await addParticipant(
+        name, 
+        cleanPhoneNumber, 
+        email || undefined, 
+        role,
+        photo
+      );
+      
       setSuccess(true);
 
       // Redirect ke list peserta setelah 2 detik
@@ -71,6 +104,18 @@ export default function AddParticipantPage() {
 
   const handleCancel = () => {
     router.push("/admin/participants");
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhoneNumber(e.target.value);
+    setPhoneNumber(formatted);
+    if (error) setError("");
+  };
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setPhoto(e.target.files[0]);
+    }
   };
 
   return (
@@ -106,7 +151,7 @@ export default function AddParticipantPage() {
                   Form Tambah Peserta
                 </CardTitle>
                 <CardDescription>
-                  Isi data peserta dengan lengkap. Semua field wajib diisi.
+                  Isi data peserta dengan lengkap. Tanda * wajib diisi.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -127,7 +172,7 @@ export default function AddParticipantPage() {
                         value={name}
                         onChange={(e) => {
                           setName(e.target.value);
-                          if (error) setError(""); // Clear error saat user mulai ketik
+                          if (error) setError("");
                         }}
                         className="pl-10"
                         disabled={loading || success}
@@ -139,12 +184,37 @@ export default function AddParticipantPage() {
                     </p>
                   </div>
 
+                  {/* Nomor Telepon Field */}
+                  <div className="space-y-2">
+                    <label htmlFor="phone" className="block text-sm font-medium flex items-center gap-2">
+                      <Phone className="h-4 w-4" />
+                      Nomor Telepon (WhatsApp)
+                      <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                      <Input
+                        id="phone"
+                        type="tel"
+                        placeholder="081234567890 atau +6281234567890"
+                        value={phoneNumber}
+                        onChange={handlePhoneChange}
+                        className="pl-10"
+                        disabled={loading || success}
+                        required
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Nomor WhatsApp untuk menerima QR Code. Contoh: 081234567890 atau +6281234567890
+                    </p>
+                  </div>
+
                   {/* Email Field */}
                   <div className="space-y-2">
                     <label htmlFor="email" className="block text-sm font-medium flex items-center gap-2">
                       <Mail className="h-4 w-4" />
                       Email
-                      <span className="text-red-500">*</span>
+                      <span className="text-gray-400 text-xs">(Opsional)</span>
                     </label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -155,15 +225,51 @@ export default function AddParticipantPage() {
                         value={email}
                         onChange={(e) => {
                           setEmail(e.target.value);
-                          if (error) setError(""); // Clear error saat user mulai ketik
+                          if (error) setError("");
                         }}
                         className="pl-10"
                         disabled={loading || success}
-                        required
                       />
                     </div>
                     <p className="text-xs text-gray-500">
-                      Email digunakan untuk mengirim konfirmasi dan sertifikat
+                      Email digunakan untuk mengirim konfirmasi dan sertifikat (opsional)
+                    </p>
+                  </div>
+
+                  {/* Role Field */}
+                  <div className="space-y-2">
+                    <label htmlFor="role" className="block text-sm font-medium">
+                      Peran
+                    </label>
+                    <select
+                      id="role"
+                      value={role}
+                      onChange={(e) => setRole(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-md"
+                      disabled={loading || success}
+                    >
+                      <option value="participant">Peserta</option>
+                      <option value="speaker">Pembicara</option>
+                      <option value="organizer">Penyelenggara</option>
+                    </select>
+                  </div>
+
+                  {/* Photo Field */}
+                  <div className="space-y-2">
+                    <label htmlFor="photo" className="block text-sm font-medium">
+                      Foto Peserta
+                      <span className="text-gray-400 text-xs ml-2">(Opsional)</span>
+                    </label>
+                    <Input
+                      id="photo"
+                      type="file"
+                      accept="image/jpeg,image/png,image/jpg"
+                      onChange={handlePhotoChange}
+                      disabled={loading || success}
+                      className="cursor-pointer"
+                    />
+                    <p className="text-xs text-gray-500">
+                      Format: JPG, JPEG, PNG. Maksimal 2MB
                     </p>
                   </div>
 
@@ -200,7 +306,7 @@ export default function AddParticipantPage() {
                   <div className="flex flex-col sm:flex-row gap-3 pt-4">
                     <Button
                       type="submit"
-                      disabled={loading || success || !name.trim() || !email.trim()}
+                      disabled={loading || success || !name.trim() || !phoneNumber.trim()}
                       className="flex-1"
                     >
                       {loading ? (
@@ -250,9 +356,9 @@ export default function AddParticipantPage() {
                   </h3>
                   <ul className="text-sm text-gray-600 space-y-2 pl-6 list-disc">
                     <li><span className="font-medium">Nama:</span> Wajib diisi</li>
-                    <li><span className="font-medium">Email:</span> Wajib diisi dengan format valid</li>
-                    <li><span className="font-medium">Format email:</span> contoh@domain.com</li>
-                    <li>Pastikan email aktif untuk menerima konfirmasi</li>
+                    <li><span className="font-medium">Nomor Telepon:</span> Wajib diisi (untuk kirim QR)</li>
+                    <li><span className="font-medium">Email:</span> Opsional</li>
+                    <li><span className="font-medium">Format No HP:</span> 081234567890 atau +6281234567890</li>
                   </ul>
                 </div>
 
@@ -263,12 +369,18 @@ export default function AddParticipantPage() {
                       <div className={`h-2 w-2 rounded-full ${name.trim() ? 'bg-green-500' : 'bg-gray-300'}`} />
                       <span className="text-sm">Nama sudah diisi</span>
                     </div>
-                    <div className={`flex items-center gap-2 ${email.trim() && isValidEmail(email) ? 'text-green-600' : 'text-gray-400'}`}>
-                      <div className={`h-2 w-2 rounded-full ${email.trim() && isValidEmail(email) ? 'bg-green-500' : 'bg-gray-300'}`} />
-                      <span className="text-sm">Email valid</span>
+                    <div className={`flex items-center gap-2 ${phoneNumber && isValidPhoneNumber(phoneNumber) ? 'text-green-600' : 'text-gray-400'}`}>
+                      <div className={`h-2 w-2 rounded-full ${phoneNumber && isValidPhoneNumber(phoneNumber) ? 'bg-green-500' : 'bg-gray-300'}`} />
+                      <span className="text-sm">Nomor telepon valid</span>
                     </div>
-                    <div className={`flex items-center gap-2 ${name.trim() && email.trim() && isValidEmail(email) ? 'text-green-600' : 'text-gray-400'}`}>
-                      <div className={`h-2 w-2 rounded-full ${name.trim() && email.trim() && isValidEmail(email) ? 'bg-green-500' : 'bg-gray-300'}`} />
+                    {email && (
+                      <div className={`flex items-center gap-2 ${isValidEmail(email) ? 'text-green-600' : 'text-red-500'}`}>
+                        <div className={`h-2 w-2 rounded-full ${isValidEmail(email) ? 'bg-green-500' : 'bg-red-500'}`} />
+                        <span className="text-sm">Email {isValidEmail(email) ? 'valid' : 'tidak valid'}</span>
+                      </div>
+                    )}
+                    <div className={`flex items-center gap-2 ${name.trim() && phoneNumber && isValidPhoneNumber(phoneNumber) ? 'text-green-600' : 'text-gray-400'}`}>
+                      <div className={`h-2 w-2 rounded-full ${name.trim() && phoneNumber && isValidPhoneNumber(phoneNumber) ? 'bg-green-500' : 'bg-gray-300'}`} />
                       <span className="text-sm">Siap disimpan</span>
                     </div>
                   </div>
